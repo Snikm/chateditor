@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>微信风格聊天界面</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f1f1f1;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #ebebeb;
+            height: 100%;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #ddd;
+            position: relative;
+        }
+
+        .chat-header {
+            background-color: #ececec;
+            padding: 10px;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title {
+            flex: 1;
+            text-align: center;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .message {
+            margin-bottom: 10px;
+            max-width: 70%;
+            position: relative;
+            clear: both;
+        }
+
+        .message-content {
+            padding: 10px;
+            border-radius: 3px;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+
+            .message-content:focus {
+                outline: none;
+                border: 1px solid #b2b2b2;
+            }
+
+        .their-message {
+            float: left;
+        }
+
+            .their-message .message-content {
+                background-color: white;
+            }
+
+        .my-message {
+            float: right;
+        }
+
+            .my-message .message-content {
+                background-color: #a0e75a;
+            }
+
+        .system-hint {
+            clear: both;
+            text-align: center;
+            color: #999;
+            font-size: 14px;
+            margin: 15px 0;
+            padding: 5px;
+            position: relative;
+        }
+
+        .system-hint-content {
+            background-color: rgba(0,0,0,0.05);
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+
+            .system-hint-content:focus {
+                outline: none;
+                border: 1px solid #b2b2b2;
+            }
+
+        .chat-input {
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-top: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-area {
+            display: flex;
+            margin-bottom: 10px;
+        }
+
+        textarea {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            resize: none;
+            height: 80px;
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .send-btn {
+            background-color: #1aad19;
+            color: white;
+        }
+
+        .send-other-btn {
+            background-color: #07c;
+            color: white;
+        }
+
+        .hint-btn {
+            background-color: #f1f1f1;
+            border: 1px solid #ddd;
+        }
+
+        .import-btn, .export-btn {
+            background-color: #f1f1f1;
+            border: 1px solid #ddd;
+            font-size: 12px;
+        }
+
+        .message-actions {
+            display: none;
+            position: absolute;
+            top: -20px;
+            right: 0;
+            z-index: 10;
+        }
+
+        .their-message .message-actions {
+            right: auto;
+            left: 0;
+        }
+
+        .system-hint .message-actions {
+            right: 50%;
+            transform: translateX(50%);
+        }
+
+        .message:hover .message-actions,
+        .system-hint:hover .message-actions {
+            display: block;
+        }
+
+        .action-btn {
+            background-color: #f1f1f1;
+            border: 1px solid #ddd;
+            border-radius: 2px;
+            padding: 2px 5px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-right: 3px;
+        }
+        /* 添加调试样式 */
+        .debug-info {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px;
+            border-radius: 3px;
+            font-size: 12px;
+            z-index: 1000;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="header-title">
+                <h2> </h2>
+            </div>
+            <div class="header-actions">
+                <button class="btn import-btn" id="importBtn">导入JSON</button>
+                <button class="btn export-btn" id="exportBtn">导出JSON</button>
+                <input type="file" id="fileInput" style="display: none;">
+            </div>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <!-- 消息会在这里动态添加 -->
+        </div>
+        <div class="chat-input">
+            <div class="input-area">
+                <textarea id="messageInput" placeholder="请输入消息..."></textarea>
+            </div>
+            <div class="buttons">
+                <button class="btn send-other-btn" id="sendTheirMessage">对方发送</button>
+                <button class="btn hint-btn" id="addHintBtn">添加提示</button>
+                <button class="btn send-btn" id="sendMyMessage">我方发送</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="debug-info" id="debugInfo"></div>
+
+    <script>// 消息数据存储
+        const chatData = {
+            messages: []
+        };
+
+        // DOM元素引用
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendMyMessageBtn = document.getElementById('sendMyMessage');
+        const sendTheirMessageBtn = document.getElementById('sendTheirMessage');
+        const addHintBtn = document.getElementById('addHintBtn');
+        const importBtn = document.getElementById('importBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const fileInput = document.getElementById('fileInput');
+        const debugInfo = document.getElementById('debugInfo');
+
+        // 调试函数
+        function debug(text) {
+            console.log(text);
+            // 调试显示可以取消注释以下行
+            // debugInfo.style.display = 'block';
+            // debugInfo.textContent = text;
+            // setTimeout(() => { debugInfo.style.display = 'none'; }, 3000);
+        }
+
+        // 添加消息函数
+        function addMessage(content, isMe) {
+            if (!content.trim()) return;
+
+            const messageId = Date.now() + Math.floor(Math.random() * 1000);
+
+            // 创建新消息对象
+            const messageObj = {
+                id: messageId,
+                content: content,
+                isMe: isMe,
+                type: 'message'
+            };
+
+            // 添加到数据存储
+            chatData.messages.push(messageObj);
+
+            // 创建消息DOM元素
+            renderMessage(messageObj);
+
+            // 滚动到底部
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            // 清空输入框
+            messageInput.value = '';
+        }
+
+        // 添加系统提示
+        function addSystemHint() {
+            debug("添加提示按钮被点击");
+
+            // 直接读取当前输入框中的文字
+            const hintText = messageInput.value;
+
+            if (hintText && hintText.trim()) {
+                debug("使用当前对话框文字: " + hintText);
+
+                const hintId = Date.now() + Math.floor(Math.random() * 1000);
+
+                // 创建提示对象
+                const hintObj = {
+                    id: hintId,
+                    content: hintText,
+                    type: 'hint'
+                };
+
+                // 添加到数据存储
+                chatData.messages.push(hintObj);
+
+                // 创建提示DOM元素
+                renderHint(hintObj);
+
+                // 滚动到底部
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                // 清空输入框
+                messageInput.value = '';
+            } else {
+                debug("当前对话框为空，不添加提示");
+            }
+        }
+
+        // 渲染单条消息
+        function renderMessage(messageObj) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${messageObj.isMe ? 'my-message' : 'their-message'}`;
+            messageDiv.dataset.id = messageObj.id;
+
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            messageContent.contentEditable = true;
+            messageContent.textContent = messageObj.content;
+
+            const messageActions = document.createElement('div');
+            messageActions.className = 'message-actions';
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'action-btn';
+            deleteBtn.textContent = '删除';
+            deleteBtn.onclick = function () {
+                deleteMessage(messageObj.id);
+            };
+
+            messageActions.appendChild(deleteBtn);
+            messageDiv.appendChild(messageActions);
+            messageDiv.appendChild(messageContent);
+
+            chatMessages.appendChild(messageDiv);
+
+            // 添加编辑事件监听
+            messageContent.addEventListener('input', function () {
+                updateMessageContent(messageObj.id, this.textContent);
+            });
+        }
+
+        // 渲染系统提示
+        function renderHint(hintObj) {
+            debug("渲染系统提示: " + hintObj.content);
+
+            const hintDiv = document.createElement('div');
+            hintDiv.className = 'system-hint';
+            hintDiv.dataset.id = hintObj.id;
+
+            const hintContent = document.createElement('div');
+            hintContent.className = 'system-hint-content';
+            hintContent.contentEditable = true;
+            hintContent.textContent = hintObj.content;
+
+            const hintActions = document.createElement('div');
+            hintActions.className = 'message-actions';
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'action-btn';
+            deleteBtn.textContent = '删除';
+            deleteBtn.onclick = function () {
+                deleteMessage(hintObj.id);
+            };
+
+            hintActions.appendChild(deleteBtn);
+            hintDiv.appendChild(hintActions);
+            hintDiv.appendChild(hintContent);
+
+            chatMessages.appendChild(hintDiv);
+
+            // 添加编辑事件监听
+            hintContent.addEventListener('input', function () {
+                updateMessageContent(hintObj.id, this.textContent);
+            });
+        }
+
+        // 更新消息内容
+        function updateMessageContent(id, newContent) {
+            const messageIndex = chatData.messages.findIndex(msg => msg.id === id);
+            if (messageIndex !== -1) {
+                chatData.messages[messageIndex].content = newContent;
+            }
+        }
+
+        // 删除消息
+        function deleteMessage(id) {
+            debug("删除消息: " + id);
+
+            // 从数据中删除
+            const messageIndex = chatData.messages.findIndex(msg => msg.id === id);
+            if (messageIndex !== -1) {
+                chatData.messages.splice(messageIndex, 1);
+            }
+
+            // 从DOM中删除
+            const element = document.querySelector(`[data-id="${id}"]`);
+            if (element) {
+                element.remove();
+            }
+        }
+
+        // 导出JSON
+        function exportJSON() {
+            const jsonString = JSON.stringify(chatData, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'chat_data_' + new Date().toISOString().slice(0, 10) + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // 导入JSON
+        function importJSON(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+
+                        // 清空当前消息
+                        chatData.messages = [];
+                        chatMessages.innerHTML = '';
+
+                        // 导入新消息
+                        if (importedData && Array.isArray(importedData.messages)) {
+                            importedData.messages.forEach(msg => {
+                                chatData.messages.push(msg);
+                                if (msg.type === 'hint') {
+                                    renderHint(msg);
+                                } else {
+                                    renderMessage(msg);
+                                }
+                            });
+                        }
+                    } catch (error) {
+                        alert('导入失败: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        // 初始化事件监听
+        function initEventListeners() {
+            debug("初始化事件监听器");
+
+            // 我方发送按钮
+            sendMyMessageBtn.addEventListener('click', function () {
+                debug("我方发送按钮被点击");
+                addMessage(messageInput.value, true);
+            });
+
+            // 对方发送按钮
+            sendTheirMessageBtn.addEventListener('click', function () {
+                debug("对方发送按钮被点击");
+                addMessage(messageInput.value, false);
+            });
+
+            // 添加提示按钮
+            addHintBtn.addEventListener('click', function () {
+                debug("添加提示按钮被点击");
+                addSystemHint();
+            });
+
+            // 键盘快捷键
+            messageInput.addEventListener('keydown', function (e) {
+                // Ctrl+Enter 发送消息
+                if (e.ctrlKey && e.key === 'Enter') {
+                    debug("检测到Ctrl+Enter快捷键");
+                    addMessage(messageInput.value, true);
+                }
+            });
+
+            // 导出按钮
+            exportBtn.addEventListener('click', function () {
+                debug("导出按钮被点击");
+                exportJSON();
+            });
+
+            // 导入按钮
+            importBtn.addEventListener('click', function () {
+                debug("导入按钮被点击");
+                fileInput.click();
+            });
+
+            // 文件输入改变
+            fileInput.addEventListener('change', function (event) {
+                debug("文件输入改变");
+                importJSON(event);
+            });
+        }
+
+        // 初始化示例消息
+        function initExampleMessages() {
+            // 添加示例消息
+        
+            chatData.messages.push(hintObj);
+            renderHint(hintObj);
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function () {
+            debug("页面加载完成");
+            initEventListeners();
+            initExampleMessages();
+        });
+
+        // 立即初始化事件监听器
+        initEventListeners();
+
+        // 初始化示例消息
+        initExampleMessages();</script>
+</body>
+</html>
