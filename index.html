@@ -2,9 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>微信风格聊天界面</title>
+    <title>聊天界面</title>
     <style>
         * {
             margin: 0;
@@ -47,6 +46,21 @@
             text-align: center;
         }
 
+        .chat-title {
+            font-size: 16px;
+            font-weight: normal;
+            border: 1px solid transparent;
+            padding: 2px 5px;
+            display: inline-block;
+            min-width: 100px;
+        }
+
+            .chat-title:focus {
+                border: 1px solid #ddd;
+                outline: none;
+                background-color: #fff;
+            }
+
         .header-actions {
             display: flex;
             gap: 10px;
@@ -56,6 +70,7 @@
             flex: 1;
             overflow-y: auto;
             padding: 10px;
+            min-height: 200px; /* 确保即使没有消息也有拖放区域 */
         }
 
         .message {
@@ -63,6 +78,25 @@
             max-width: 70%;
             position: relative;
             clear: both;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            margin-right: 10px;
+            cursor: pointer;
+            background-color: #1aad19;
+        }
+
+        .their-message .avatar {
+            background-color: #07c;
+        }
+
+        .message-wrapper {
+            flex: 1;
         }
 
         .message-content {
@@ -70,6 +104,7 @@
             border-radius: 3px;
             word-break: break-word;
             white-space: pre-wrap;
+            display: inline-block;
         }
 
             .message-content:focus {
@@ -87,7 +122,13 @@
 
         .my-message {
             float: right;
+            flex-direction: row-reverse;
         }
+
+            .my-message .avatar {
+                margin-right: 0;
+                margin-left: 10px;
+            }
 
             .my-message .message-content {
                 background-color: #a0e75a;
@@ -130,7 +171,6 @@
 
         textarea {
             flex: 1;
-            font-size: 16px;
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 3px;
@@ -145,7 +185,6 @@
 
         .btn {
             padding: 8px 15px;
-            font-size: 16px;
             border: none;
             border-radius: 3px;
             cursor: pointer;
@@ -153,25 +192,21 @@
 
         .send-btn {
             background-color: #1aad19;
-            font-size: 16px;
             color: white;
         }
 
         .send-other-btn {
             background-color: #07c;
-            font-size: 16px;
             color: white;
         }
 
         .hint-btn {
             background-color: #f1f1f1;
-            font-size: 16px;
             border: 1px solid #ddd;
         }
 
         .import-btn, .export-btn {
             background-color: #f1f1f1;
-            font-size: 16px;
             border: 1px solid #ddd;
             font-size: 12px;
         }
@@ -179,7 +214,6 @@
         .message-actions {
             display: none;
             position: absolute;
-            font-size: 16px;
             top: -20px;
             right: 0;
             z-index: 10;
@@ -209,7 +243,54 @@
             cursor: pointer;
             margin-right: 3px;
         }
-        /* 添加调试样式 */
+
+        .drag-handle {
+            cursor: move;
+            background-color: #f1f1f1;
+            border: 1px solid #ddd;
+            border-radius: 2px;
+            padding: 2px 5px;
+            font-size: 12px;
+        }
+
+        .color-picker {
+            position: absolute;
+            display: none;
+            background: white;
+            border: 1px solid #ddd;
+            padding: 5px;
+            border-radius: 5px;
+            z-index: 100;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .color-option {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+            margin: 2px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        /* 拖拽相关样式 */
+        .dragging {
+            opacity: 0.5;
+            cursor: move;
+        }
+
+        .drag-over {
+            border-top: 2px solid #07c;
+        }
+
+        .drag-placeholder {
+            background-color: rgba(7, 119, 204, 0.1);
+            border: 2px dashed #07c;
+            border-radius: 3px;
+            margin: 5px 0;
+        }
+
+        /* 调试信息样式 */
         .debug-info {
             position: fixed;
             bottom: 10px;
@@ -228,11 +309,11 @@
     <div class="chat-container">
         <div class="chat-header">
             <div class="header-title">
-                <h2> </h2>
+                <h2 class="chat-title" id="chatTitle" contenteditable="true">聊天记录</h2>
             </div>
             <div class="header-actions">
-                <button class="btn import-btn" id="importBtn">导入JSON</button>
-                <button class="btn export-btn" id="exportBtn">导出JSON</button>
+                <button class="btn import-btn" id="importBtn">打开</button>
+                <button class="btn export-btn" id="exportBtn">保存</button>
                 <input type="file" id="fileInput" style="display: none;">
             </div>
         </div>
@@ -251,10 +332,20 @@
         </div>
     </div>
 
+    <div class="color-picker" id="colorPicker">
+        <div class="color-option" style="background-color: #1aad19;" data-color="#1aad19"></div>
+        <div class="color-option" style="background-color: #07c;" data-color="#07c"></div>
+        <div class="color-option" style="background-color: #f44336;" data-color="#f44336"></div>
+        <div class="color-option" style="background-color: #ff9800;" data-color="#ff9800"></div>
+        <div class="color-option" style="background-color: #9c27b0;" data-color="#9c27b0"></div>
+        <div class="color-option" style="background-color: #795548;" data-color="#795548"></div>
+    </div>
+
     <div class="debug-info" id="debugInfo"></div>
 
     <script>// 消息数据存储
         const chatData = {
+            title: "聊天记录",
             messages: []
         };
 
@@ -268,6 +359,13 @@
         const exportBtn = document.getElementById('exportBtn');
         const fileInput = document.getElementById('fileInput');
         const debugInfo = document.getElementById('debugInfo');
+        const colorPicker = document.getElementById('colorPicker');
+        const chatTitle = document.getElementById('chatTitle');
+
+        // 拖拽相关变量
+        let draggedElement = null;
+        let dragStartY = 0;
+        let placeholderElement = null;
 
         // 调试函数
         function debug(text) {
@@ -278,18 +376,26 @@
             // setTimeout(() => { debugInfo.style.display = 'none'; }, 3000);
         }
 
+        // 初始化标题
+        chatTitle.textContent = chatData.title;
+        chatTitle.addEventListener('input', function () {
+            chatData.title = this.textContent;
+        });
+
         // 添加消息函数
         function addMessage(content, isMe) {
             if (!content.trim()) return;
 
             const messageId = Date.now() + Math.floor(Math.random() * 1000);
+            const avatarColor = isMe ? '#1aad19' : '#07c';
 
             // 创建新消息对象
             const messageObj = {
                 id: messageId,
                 content: content,
                 isMe: isMe,
-                type: 'message'
+                type: 'message',
+                avatarColor: avatarColor
             };
 
             // 添加到数据存储
@@ -345,6 +451,17 @@
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${messageObj.isMe ? 'my-message' : 'their-message'}`;
             messageDiv.dataset.id = messageObj.id;
+            messageDiv.draggable = true;
+
+            // 创建头像
+            const avatar = document.createElement('div');
+            avatar.className = 'avatar';
+            avatar.style.backgroundColor = messageObj.avatarColor || (messageObj.isMe ? '#1aad19' : '#07c');
+            avatar.dataset.messageId = messageObj.id;
+
+            // 消息包装器
+            const messageWrapper = document.createElement('div');
+            messageWrapper.className = 'message-wrapper';
 
             const messageContent = document.createElement('div');
             messageContent.className = 'message-content';
@@ -354,6 +471,10 @@
             const messageActions = document.createElement('div');
             messageActions.className = 'message-actions';
 
+            const dragBtn = document.createElement('button');
+            dragBtn.className = 'action-btn drag-handle';
+            dragBtn.textContent = '拖动';
+
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'action-btn';
             deleteBtn.textContent = '删除';
@@ -361,9 +482,13 @@
                 deleteMessage(messageObj.id);
             };
 
+            messageActions.appendChild(dragBtn);
             messageActions.appendChild(deleteBtn);
-            messageDiv.appendChild(messageActions);
-            messageDiv.appendChild(messageContent);
+            messageWrapper.appendChild(messageActions);
+            messageWrapper.appendChild(messageContent);
+
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(messageWrapper);
 
             chatMessages.appendChild(messageDiv);
 
@@ -371,6 +496,14 @@
             messageContent.addEventListener('input', function () {
                 updateMessageContent(messageObj.id, this.textContent);
             });
+
+            // 添加头像点击事件
+            avatar.addEventListener('click', function (e) {
+                showColorPicker(e, messageObj.id);
+            });
+
+            // 添加拖拽事件
+            initDragEvents(messageDiv);
         }
 
         // 渲染系统提示
@@ -380,6 +513,7 @@
             const hintDiv = document.createElement('div');
             hintDiv.className = 'system-hint';
             hintDiv.dataset.id = hintObj.id;
+            hintDiv.draggable = true;
 
             const hintContent = document.createElement('div');
             hintContent.className = 'system-hint-content';
@@ -389,6 +523,10 @@
             const hintActions = document.createElement('div');
             hintActions.className = 'message-actions';
 
+            const dragBtn = document.createElement('button');
+            dragBtn.className = 'action-btn drag-handle';
+            dragBtn.textContent = '拖动';
+
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'action-btn';
             deleteBtn.textContent = '删除';
@@ -396,6 +534,7 @@
                 deleteMessage(hintObj.id);
             };
 
+            hintActions.appendChild(dragBtn);
             hintActions.appendChild(deleteBtn);
             hintDiv.appendChild(hintActions);
             hintDiv.appendChild(hintContent);
@@ -406,6 +545,145 @@
             hintContent.addEventListener('input', function () {
                 updateMessageContent(hintObj.id, this.textContent);
             });
+
+            // 添加拖拽事件
+            initDragEvents(hintDiv);
+        }
+
+        // 初始化拖拽事件
+        function initDragEvents(element) {
+            element.addEventListener('dragstart', function (e) {
+                draggedElement = this;
+                this.classList.add('dragging');
+                e.dataTransfer.setData('text/plain', this.dataset.id);
+                e.dataTransfer.effectAllowed = 'move';
+
+                // 记录拖拽开始时的Y坐标
+                dragStartY = e.clientY;
+
+                // 创建占位元素
+                placeholderElement = document.createElement('div');
+                placeholderElement.className = 'drag-placeholder';
+                placeholderElement.style.height = `${this.offsetHeight}px`;
+            });
+
+            element.addEventListener('dragend', function () {
+                this.classList.remove('dragging');
+                draggedElement = null;
+
+                // 移除所有占位符和高亮边框
+                if (placeholderElement && placeholderElement.parentNode) {
+                    placeholderElement.parentNode.removeChild(placeholderElement);
+                }
+                document.querySelectorAll('.drag-over').forEach(el => {
+                    el.classList.remove('drag-over');
+                });
+
+                // 重新排序数据
+                reorderMessages();
+            });
+        }
+
+        // 为聊天消息区域添加拖拽事件监听
+        function initChatAreaDragEvents() {
+            chatMessages.addEventListener('dragover', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (!draggedElement) return;
+
+                // 计算鼠标位置，确定放置位置
+                const mouseY = e.clientY;
+                const allElements = [...chatMessages.querySelectorAll('.message, .system-hint')];
+
+                // 找出最近的元素
+                let closestElement = null;
+                let closestDistance = Infinity;
+                let insertBefore = true;
+
+                allElements.forEach(el => {
+                    if (el === draggedElement) return;
+
+                    const rect = el.getBoundingClientRect();
+                    const elementMiddle = rect.top + rect.height / 2;
+                    const distance = Math.abs(mouseY - elementMiddle);
+
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestElement = el;
+                        insertBefore = mouseY < elementMiddle;
+                    }
+                });
+
+                // 清除所有占位符和高亮
+                document.querySelectorAll('.drag-over').forEach(el => {
+                    el.classList.remove('drag-over');
+                });
+                if (placeholderElement && placeholderElement.parentNode) {
+                    placeholderElement.parentNode.removeChild(placeholderElement);
+                }
+
+                // 特殊处理：鼠标位于列表底部时
+                if (!closestElement || (allElements.indexOf(closestElement) === allElements.length - 1 && !insertBefore)) {
+                    // 放在列表末尾
+                    chatMessages.appendChild(placeholderElement);
+                } else if (insertBefore) {
+                    // 放在找到的元素之前
+                    chatMessages.insertBefore(placeholderElement, closestElement);
+                } else {
+                    // 放在找到的元素之后
+                    chatMessages.insertBefore(placeholderElement, closestElement.nextSibling);
+                }
+            });
+
+            chatMessages.addEventListener('drop', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (!draggedElement || !placeholderElement) return;
+
+                // 将拖拽元素插入到占位元素的位置
+                if (placeholderElement.parentNode) {
+                    chatMessages.insertBefore(draggedElement, placeholderElement);
+                    placeholderElement.parentNode.removeChild(placeholderElement);
+                }
+
+                // 清除所有高亮
+                document.querySelectorAll('.drag-over').forEach(el => {
+                    el.classList.remove('drag-over');
+                });
+            });
+        }
+
+        // 显示颜色选择器
+        function showColorPicker(event, messageId) {
+            const avatar = event.target;
+
+            // 定位颜色选择器
+            colorPicker.style.display = 'block';
+            colorPicker.style.left = `${event.pageX}px`;
+            colorPicker.style.top = `${event.pageY}px`;
+
+            // 设置当前消息ID
+            colorPicker.dataset.messageId = messageId;
+
+            // 阻止事件冒泡
+            event.stopPropagation();
+        }
+
+        // 更新头像颜色
+        function updateAvatarColor(messageId, color) {
+            // 更新数据存储
+            const messageIndex = chatData.messages.findIndex(msg => msg.id === parseInt(messageId));
+            if (messageIndex !== -1) {
+                chatData.messages[messageIndex].avatarColor = color;
+            }
+
+            // 更新DOM
+            const avatar = document.querySelector(`.avatar[data-message-id="${messageId}"]`);
+            if (avatar) {
+                avatar.style.backgroundColor = color;
+            }
         }
 
         // 更新消息内容
@@ -433,15 +711,35 @@
             }
         }
 
+        // 重新排序消息数据
+        function reorderMessages() {
+            const newMessageOrder = [];
+
+            // 获取新的消息顺序
+            chatMessages.querySelectorAll('.message, .system-hint').forEach(element => {
+                const id = parseInt(element.dataset.id);
+                const messageObj = chatData.messages.find(msg => msg.id === id);
+                if (messageObj) {
+                    newMessageOrder.push(messageObj);
+                }
+            });
+
+            // 更新消息数据
+            chatData.messages = newMessageOrder;
+        }
+
         // 导出JSON
         function exportJSON() {
+            // 更新标题
+            chatData.title = chatTitle.textContent;
+
             const jsonString = JSON.stringify(chatData, null, 2);
             const blob = new Blob([jsonString], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
 
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'chat_data_' + new Date().toISOString().slice(0, 10) + '.json';
+            a.download = chatData.title + '_' + new Date().toISOString().slice(0, 10) + '.json';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -460,6 +758,12 @@
                         // 清空当前消息
                         chatData.messages = [];
                         chatMessages.innerHTML = '';
+
+                        // 导入标题
+                        if (importedData.title) {
+                            chatData.title = importedData.title;
+                            chatTitle.textContent = importedData.title;
+                        }
 
                         // 导入新消息
                         if (importedData && Array.isArray(importedData.messages)) {
@@ -528,12 +832,44 @@
                 debug("文件输入改变");
                 importJSON(event);
             });
+
+            // 颜色选择器事件
+            document.querySelectorAll('.color-option').forEach(option => {
+                option.addEventListener('click', function () {
+                    const color = this.dataset.color;
+                    const messageId = colorPicker.dataset.messageId;
+                    updateAvatarColor(messageId, color);
+                    colorPicker.style.display = 'none';
+                });
+            });
+
+            // 点击其他地方关闭颜色选择器
+            document.addEventListener('click', function () {
+                colorPicker.style.display = 'none';
+            });
+
+            // 阻止颜色选择器的点击事件冒泡
+            colorPicker.addEventListener('click', function (e) {
+                e.stopPropagation();
+            });
+
+            // 初始化聊天区域拖拽事件
+            initChatAreaDragEvents();
         }
 
         // 初始化示例消息
         function initExampleMessages() {
             // 添加示例消息
-        
+            addMessage("你好，这是一条示例消息！", false);
+            addMessage("你可以点击头像更改颜色", true);
+
+            // 添加系统提示
+            const hintObj = {
+                id: Date.now(),
+                content: "可以拖动消息改变顺序",
+                type: 'hint'
+            };
+
             chatData.messages.push(hintObj);
             renderHint(hintObj);
         }
@@ -541,14 +877,11 @@
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function () {
             debug("页面加载完成");
-            initEventListeners();
-            initExampleMessages();
+            //initEventListeners();
+            //initExampleMessages();
         });
 
         // 立即初始化事件监听器
-        initEventListeners();
-
-        // 初始化示例消息
-        initExampleMessages();</script>
+        initEventListeners();</script>
 </body>
 </html>
